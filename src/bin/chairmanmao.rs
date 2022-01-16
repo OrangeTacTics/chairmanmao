@@ -4,8 +4,8 @@ use std::sync::Mutex;
 use std::env;
 //use bytes::Bytes;
 
-mod api;
-mod command_parser;
+use chairmanmao::api;
+use chairmanmao::command_parser;
 
 use serde::{Serialize, Deserialize};
 
@@ -135,9 +135,15 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, _ctx: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected.", ready.user.name);
-        tokio::spawn(background_loop(self.redis.clone()));
+        //println!("{:?}", ready.guilds);
+
+        let guild_id = GuildId(env::var("GUILD_ID").unwrap().parse::<u64>().unwrap());
+
+        let constants = chairmanmao::discord::DiscordConstants::load(&ctx.http, ready.user.id, guild_id).await;
+        constants.tiananmen_channel.say(ctx, format!("Online {}", constants.mao_emoji)).await.unwrap();
+//        tokio::spawn(background_loop(self.redis.clone()));
     }
 }
 

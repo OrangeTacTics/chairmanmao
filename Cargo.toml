@@ -8,6 +8,10 @@ name = "chairmanmao"
 path = "src/lib.rs"
 
 [[bin]]
+name = "chairmanmao"
+path = "src/bin/chairmanmao.rs"
+
+[[bin]]
 name = "exam"
 path = "src/bin/exam.rs"
 
