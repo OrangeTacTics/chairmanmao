@@ -1,13 +1,13 @@
 use serenity::model::id::UserId;
 
+#[derive(Clone)]
+#[non_exhaustive]
 pub struct Api {
-    _dummy: (),
 }
 
 impl Api {
     pub fn new() -> Api {
         Api {
-            _dummy: (),
         }
     }
 

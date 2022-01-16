@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serenity::model::prelude::*;
 use serenity::http::client::Http;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DiscordConstants {
     pub guild_id: GuildId,
     pub bot_user_id: UserId,

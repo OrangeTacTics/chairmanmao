@@ -36,18 +36,24 @@ struct User {
     roles: Vec<String>,
 }
 
+struct Handler;
 
-struct Handler {
-    redis: Redis,
-    api: api::Api,
+async fn api_from_context(ctx: &Context) -> api::Api {
+    let data = ctx.data.read().await;
+    let api = data.get::<Api>().unwrap();
+    api.clone()
+}
+
+async fn discord_constants_from_context(ctx: &Context) -> chairmanmao::discord::DiscordConstants {
+    let data = ctx.data.read().await;
+    let discord_constants = data.get::<DiscordConstants>().unwrap().as_ref().unwrap();
+    discord_constants.clone()
 }
 
 impl Handler {
-    fn new(redis: Redis, api: api::Api) -> Handler {
-        Handler { redis, api, }
-    }
-
-    async fn run_command(&self, _ctx: Context, msg: Message) -> Option<()> {
+    async fn run_command(&self, ctx: Context, msg: Message) -> Option<()> {
+        let constants = discord_constants_from_context(&ctx).await;
+        let api = api_from_context(&ctx).await;
         let mut parser = command_parser::Parser::new(&msg.content);
         let command_name = parser.parse_command()?;
 
@@ -57,7 +63,8 @@ impl Handler {
             "register" => {
                 let user_id = parser.parse_user_id()?;
                 parser.end()?;
-                self.api.register(user_id, "SDF".to_string());
+                api.register(user_id, "SDF".to_string());
+                constants.tiananmen_channel.say(&ctx, "Hey").await;
             },
             "honor" => {
                 let to_user_id = parser.parse_user_id()?;
@@ -65,34 +72,40 @@ impl Handler {
                 let amount = i32::try_from(parser.parse_integer()?).ok()?;
                 let reason = parser.parse_rest();
                 parser.end()?;
-                self.api.honor(to_user_id, by_user_id, amount, reason);
+
+
+                api.honor(to_user_id, by_user_id, amount, reason);
+                chairmanmao::messages::comrade_honored(&ctx, msg.channel_id, amount as u32).await.unwrap();
             },
             "dishonor" => {
                 let to_user_id = parser.parse_user_id()?;
                 let by_user_id = msg.author.id;
-                let amount = -i32::try_from(parser.parse_integer()?).ok()?;
+                let amount = i32::try_from(parser.parse_integer()?).ok()?;
                 let reason = parser.parse_rest();
                 parser.end()?;
-                self.api.honor(to_user_id, by_user_id, amount, reason);
+                api.honor(to_user_id, by_user_id, amount, reason);
+                chairmanmao::messages::comrade_dishonored(&ctx, msg.channel_id, (-amount) as u32).await.unwrap();
             },
             "jail" => {
                 let to_user_id = parser.parse_user_id()?;
                 let by_user_id = msg.author.id;
                 let reason = parser.parse_rest();
                 parser.end()?;
-                self.api.jail(to_user_id, by_user_id, reason);
+                api.jail(to_user_id, by_user_id, reason);
             },
             "unjail" => {
                 let to_user_id = parser.parse_user_id()?;
                 let by_user_id = msg.author.id;
                 parser.end()?;
-                self.api.unjail(to_user_id, by_user_id);
+                api.unjail(to_user_id, by_user_id);
+            },
+            "ping" => {
+                let exam = chairmanmao::exams::load::load_exam("hsk1");
+                chairmanmao::messages::exam_start(&ctx, msg.channel_id, &exam).await.unwrap();
             },
             _ => return None,
         };
 
-
-    //        &"!ping" => { msg.channel_id.say(&ctx.http, "Pong!").await.unwrap(); () }
         Some(())
     }
 }
@@ -107,8 +120,9 @@ async fn reaction_users(ctx: Context, reaction: Reaction) -> Option<(UserId, Use
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
+        let api = api_from_context(&ctx).await;
         println!("{:?}", msg);
-        self.api.log_message(msg.author.id, msg.content.clone());
+        api.log_message(msg.author.id, msg.content.clone());
 
         if msg.content.starts_with("!") {
             self.run_command(ctx, msg).await;
@@ -116,21 +130,23 @@ impl EventHandler for Handler {
     }
 
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+        let api = api_from_context(&ctx).await;
         if let Some((to_user_id, by_user_id)) = reaction_users(ctx, reaction).await {
             if to_user_id != by_user_id {
                 let amount = 1;
                 let reason = "[REACTION]".to_owned();
-                self.api.honor(to_user_id, by_user_id, amount, reason);
+                api.honor(to_user_id, by_user_id, amount, reason);
             }
         }
     }
 
     async fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
+        let api = api_from_context(&ctx).await;
         if let Some((to_user_id, by_user_id)) = reaction_users(ctx, reaction).await {
             if to_user_id != by_user_id {
                 let amount = -1;
                 let reason = "[REACTION]".to_owned();
-                self.api.honor(to_user_id, by_user_id, amount, reason);
+                api.honor(to_user_id, by_user_id, amount, reason);
             }
         }
     }
@@ -140,9 +156,15 @@ impl EventHandler for Handler {
         //println!("{:?}", ready.guilds);
 
         let guild_id = GuildId(env::var("GUILD_ID").unwrap().parse::<u64>().unwrap());
+        {
+            let mut data = ctx.data.write().await;
+            let discord_constants = data.get_mut::<DiscordConstants>().unwrap();
+            let constants = chairmanmao::discord::DiscordConstants::load(&ctx.http, ready.user.id, guild_id).await;
+            *discord_constants = Some(constants);
+        }
 
-        let constants = chairmanmao::discord::DiscordConstants::load(&ctx.http, ready.user.id, guild_id).await;
-        constants.tiananmen_channel.say(ctx, format!("Online {}", constants.mao_emoji)).await.unwrap();
+        let discord_constants = discord_constants_from_context(&ctx).await;
+        discord_constants.tiananmen_channel.say(&ctx, format!("Online {}", discord_constants.mao_emoji)).await.unwrap();
 //        tokio::spawn(background_loop(self.redis.clone()));
     }
 }
@@ -168,6 +190,7 @@ async fn background_loop(redis: Redis) {
 struct Redis {
     connection: Arc<Mutex<redis::Connection>>,
 }
+
 
 impl Redis {
     fn new() -> Self {
@@ -199,6 +222,22 @@ async fn download_emoji(emoji_id: &str) {
 */
 
 
+impl TypeMapKey for Redis {
+    type Value = Redis;
+}
+
+
+struct Api;
+impl TypeMapKey for Api {
+    type Value = api::Api;
+}
+
+struct DiscordConstants;
+impl TypeMapKey for DiscordConstants {
+    type Value = Option<chairmanmao::discord::DiscordConstants>;
+}
+
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
@@ -210,9 +249,16 @@ async fn main() {
     let api = api::Api::new();
 
     let mut client = Client::builder(&token)
-        .event_handler(Handler::new(redis, api))
+        .event_handler(Handler)
         .await
         .unwrap();
+
+    {
+        let mut data = client.data.write().await;
+        data.insert::<Redis>(redis);
+        data.insert::<Api>(api);
+        data.insert::<DiscordConstants>(None);
+    }
 
     client.start().await.unwrap();
 }
