@@ -21,7 +21,6 @@ use serenity::{
     model::channel::Message,
     model::channel::Reaction,
     model::gateway::Ready,
-//    model::guild::Role,
     model::id::*,
     prelude::*,
 };
@@ -98,6 +97,16 @@ impl Handler {
                 let by_user_id = msg.author.id;
                 parser.end()?;
                 api.unjail(to_user_id, by_user_id);
+            },
+            "draw" => {
+                let text = parser.parse_rest();
+                parser.end()?;
+                chairmanmao::draw::draw(&text);
+                let filepath = std::path::Path::new("out.png");
+                msg.channel_id.send_message(&ctx, |m| {
+                    m.add_file(filepath)
+                }).await.unwrap();
+
             },
             "ping" => {
                 let exam = chairmanmao::exams::load::load_exam("hsk1");
