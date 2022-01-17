@@ -39,7 +39,7 @@ pub fn draw(text: &str) {
     };
 
     // Create a new rgba image with some padding
-    let mut image = DynamicImage::new_rgba8(glyphs_width + 10, glyphs_height + 10).to_rgba();
+    let mut image = DynamicImage::new_rgba8(glyphs_width + 10, glyphs_height + 10).to_rgba8();
 
     // Loop through the glyphs in the text, positing each one on a line
     for glyph in glyphs {

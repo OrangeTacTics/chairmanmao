@@ -1,6 +1,4 @@
 use dotenv;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::env;
 //use bytes::Bytes;
 
@@ -8,13 +6,6 @@ use chairmanmao::api;
 use chairmanmao::command_parser;
 
 use serde::{Serialize, Deserialize};
-
-/*
-use tokio::time::{
-    sleep,
-    Duration,
-};
-*/
 
 use serenity::{
     async_trait,
@@ -24,9 +15,6 @@ use serenity::{
     model::id::*,
     prelude::*,
 };
-
-//use redis::Commands;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct User {
@@ -63,7 +51,7 @@ impl Handler {
                 let user_id = parser.parse_user_id()?;
                 parser.end()?;
                 api.register(user_id, "SDF".to_string());
-                constants.tiananmen_channel.say(&ctx, "Hey").await;
+                constants.tiananmen_channel.say(&ctx, "Hey").await.unwrap();
             },
             "honor" => {
                 let to_user_id = parser.parse_user_id()?;
@@ -174,14 +162,15 @@ impl EventHandler for Handler {
 
         let discord_constants = discord_constants_from_context(&ctx).await;
         discord_constants.tiananmen_channel.say(&ctx, format!("Online {}", discord_constants.mao_emoji)).await.unwrap();
-//        tokio::spawn(background_loop(self.redis.clone()));
+        tokio::spawn(background_loop());
     }
 }
 
-async fn background_loop(redis: Redis) {
-    let mut _conn = redis.connection.lock().unwrap();
-    /*
+async fn background_loop() {
     loop {
+    }
+//    let mut _conn = redis.connection.lock().unwrap();
+    /*
         println!("OK");
         {
             let mut conn = redis.connection.lock().unwrap();
@@ -195,12 +184,7 @@ async fn background_loop(redis: Redis) {
     */
 }
 
-#[derive(Clone)]
-struct Redis {
-    connection: Arc<Mutex<redis::Connection>>,
-}
-
-
+/*
 impl Redis {
     fn new() -> Self {
         let host = env::var("REDIS_HOST").unwrap().to_string();
@@ -211,6 +195,7 @@ impl Redis {
         }
     }
 }
+*/
 
 /*
 async fn download_emoji(emoji_id: &str) {
@@ -231,11 +216,6 @@ async fn download_emoji(emoji_id: &str) {
 */
 
 
-impl TypeMapKey for Redis {
-    type Value = Redis;
-}
-
-
 struct Api;
 impl TypeMapKey for Api {
     type Value = api::Api;
@@ -254,7 +234,6 @@ async fn main() {
 //    download_emoji(emoji_id).await;
 
     let token = env::var("DISCORD_TOKEN").unwrap();
-    let redis = Redis::new();
     let api = api::Api::new();
 
     let mut client = Client::builder(&token)
@@ -264,7 +243,6 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<Redis>(redis);
         data.insert::<Api>(api);
         data.insert::<DiscordConstants>(None);
     }

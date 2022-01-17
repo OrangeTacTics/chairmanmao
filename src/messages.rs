@@ -1,6 +1,6 @@
 use serenity::prelude::*;
 use serenity::model::prelude::*;
-use serenity::builder::CreateMessage;
+//use serenity::builder::CreateMessage;
 use crate::exams::{Exam, ExamScore};
 
 pub async fn comrade_honored(
@@ -111,7 +111,7 @@ pub async fn exam_results(
     for (question, answer) in score.graded_questions.iter() {
         let correct = answer.is_correct();
         let emoji = if correct { "✅" } else { "❌" };
-        let correct_answer = question.valid_answers[0].clone();
+        let _correct_answer = question.valid_answers[0].clone();
         let question_str = question.question.to_string(); // ljust(longest_answer + 2 "  ");
         // answer_str = answer if correct else f"{answer} → {correct_answer}"
         let answer_str = format!("{:?}", answer);
