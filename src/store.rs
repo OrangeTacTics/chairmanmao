@@ -1,7 +1,6 @@
 // This trait is required to use `try_next()` on the cursor
 use mongodb::{bson::doc, Collection, Database};
 use serde::{Serialize, Deserialize};
-use bson::oid::ObjectId;
 
 async fn connect_to_mongo() -> Database {
     use mongodb::{Client, options::ClientOptions};
@@ -37,7 +36,6 @@ impl Store {
     pub async fn register(&self, user_id: u64, discord_username: String) {
         let display_name = discord_username.clone();
         let profile = Profile {
-            _id: None,
             user_id,
             discord_username,
 
@@ -62,11 +60,17 @@ impl Store {
         };
         self.profiles_collection.find_one(filter, None).await.unwrap()
     }
+
+    pub async fn store_profile(&self, user_id: u64, profile: &Profile) {
+        let filter = doc! {
+            "user_id": user_id as i64,
+        };
+        self.profiles_collection.replace_one(filter, profile, None).await.unwrap();
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
-    _id: Option<ObjectId>,
     user_id: u64,
     discord_username: String,
 

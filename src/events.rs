@@ -1,60 +1,68 @@
-use serde_json::Value;
+use ulid::Ulid;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Event {
-    pub id: String,
+    pub id: Ulid,
     pub payload: EventPayload,
 }
 
 
 #[derive(Debug)]
 pub enum EventPayload {
-    ComradeHonored(payload::ComradeHonoredPayload),
-    ProfileRegistered(payload::ProfileRegisteredPayload),
+    ComradeHonored(payload::ComradeHonored),
+    ProfileRegistered(payload::ProfileRegistered),
 }
 
 impl Event {
-    pub fn load(bytes: &[u8]) -> Option<Event> {
-//        let event = serde_json::from_slice::<Event>(payload);
-        let value: Value = serde_json::from_slice::<Value>(bytes).ok()?;
+    pub fn from_map(map: &HashMap<String, String>) -> Option<Event> {
+        let id = &map["id"];
+        let event_type = &map["type"];
 
-        let id: String = value.get("id")?.as_str()?.to_owned();
-        let type_name: &str = value.get("type")?.as_str()?;
-        let payload_value: Value = value.get("payload")?.clone();
-        println!("{} {}", id, type_name);
-        println!("{}", payload_value);
-
-        let payload = match type_name {
-            "ComradeHonored" => {
-                let payload = serde_json::from_value::<payload::ComradeHonoredPayload>(payload_value).unwrap();
-                EventPayload::ComradeHonored(payload)
-            },
-            "ProfileRegistered" => {
-                let payload = serde_json::from_value::<payload::ProfileRegisteredPayload>(payload_value).unwrap();
-                EventPayload::ProfileRegistered(payload)
-            },
-            _ => panic!("OOK"),
+        let event = match event_type.as_str() {
+            "ProfileRegistered" => payload::ProfileRegistered::from_map(id, map),
+            "ComradeHonored" => payload::ComradeHonored::from_map(id, map),
+            a => { println!("{}", a); None },
         };
-        Some(Event {
-            id,
-            payload,
-        })
+
+        event
     }
 }
 
 mod payload {
+    use std::collections::HashMap;
+    use ulid::Ulid;
+    use super::{Event, EventPayload};
     use serde::{Serialize, Deserialize};
 
     #[derive(Serialize, Deserialize, Debug)]
-    pub struct ComradeHonoredPayload {
+    pub struct ComradeHonored {
         pub to_user_id: String,
         pub by_user_id: String,
         pub amount: i32,
         pub reason: String,
     }
 
+    impl ComradeHonored {
+        pub fn from_map(id: &str, map: &HashMap<String, String>) -> Option<Event> {
+            let payload = EventPayload::ComradeHonored(ComradeHonored {
+                to_user_id: map.get("to_user_id")?.to_string(),
+                by_user_id: map.get("by_user_id")?.to_string(),
+                amount: map.get("amount")?.parse::<i32>().ok()?,
+                reason: map.get("reason")?.to_string(),
+            });
+
+            let id = Ulid::from_string(id).ok()?;
+
+            Some(Event {
+                id,
+                payload,
+            })
+        }
+    }
+
     #[derive(Serialize, Deserialize, Debug)]
-    pub struct ComradeJailedPayload {
+    pub struct ComradeJailed {
         to_user_id: String,
         by_user_id: String,
         amount: i32,
@@ -62,9 +70,24 @@ mod payload {
     }
 
     #[derive(Serialize, Deserialize, Debug)]
-    pub struct ProfileRegisteredPayload {
+    pub struct ProfileRegistered {
         user_id: String,
         discord_username: String,
     }
-}
 
+    impl ProfileRegistered {
+        pub fn from_map(id: &str, map: &HashMap<String, String>) -> Option<Event> {
+            let payload = EventPayload::ProfileRegistered(ProfileRegistered {
+                user_id: map.get("user_id")?.to_string(),
+                discord_username: map.get("discord_username")?.to_string(),
+            });
+
+            let id = Ulid::from_string(id).ok()?;
+
+            Some(Event {
+                id,
+                payload,
+            })
+        }
+    }
+}
