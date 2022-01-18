@@ -50,7 +50,9 @@ impl Handler {
             "register" => {
                 let user_id = parser.parse_user_id()?;
                 parser.end()?;
-                api.register(user_id, "SDF".to_string());
+                let user = ctx.http.get_user(user_id.0).await.unwrap();
+                let username = format!("{}#{}", user.name, user.discriminator);
+                api.register(user_id, username).await;
                 constants.tiananmen_channel.say(&ctx, "Hey").await.unwrap();
             },
             "honor" => {
@@ -61,7 +63,7 @@ impl Handler {
                 parser.end()?;
 
 
-                api.honor(to_user_id, by_user_id, amount, reason);
+                api.honor(to_user_id, by_user_id, amount, reason).await;
                 chairmanmao::messages::comrade_honored(&ctx, msg.channel_id, amount as u32).await.unwrap();
             },
             "dishonor" => {
@@ -70,7 +72,7 @@ impl Handler {
                 let amount = i32::try_from(parser.parse_integer()?).ok()?;
                 let reason = parser.parse_rest();
                 parser.end()?;
-                api.honor(to_user_id, by_user_id, amount, reason);
+                api.dishonor(to_user_id, by_user_id, amount, reason).await;
                 chairmanmao::messages::comrade_dishonored(&ctx, msg.channel_id, (-amount) as u32).await.unwrap();
             },
             "jail" => {
@@ -78,13 +80,13 @@ impl Handler {
                 let by_user_id = msg.author.id;
                 let reason = parser.parse_rest();
                 parser.end()?;
-                api.jail(to_user_id, by_user_id, reason);
+                api.jail(to_user_id, by_user_id, reason).await;
             },
             "unjail" => {
                 let to_user_id = parser.parse_user_id()?;
                 let by_user_id = msg.author.id;
                 parser.end()?;
-                api.unjail(to_user_id, by_user_id);
+                api.unjail(to_user_id, by_user_id).await;
             },
             "draw" => {
                 let text = parser.parse_rest();
@@ -132,7 +134,7 @@ impl EventHandler for Handler {
             if to_user_id != by_user_id {
                 let amount = 1;
                 let reason = "[REACTION]".to_owned();
-                api.honor(to_user_id, by_user_id, amount, reason);
+                api.honor(to_user_id, by_user_id, amount, reason).await;
             }
         }
     }
@@ -141,9 +143,9 @@ impl EventHandler for Handler {
         let api = api_from_context(&ctx).await;
         if let Some((to_user_id, by_user_id)) = reaction_users(ctx, reaction).await {
             if to_user_id != by_user_id {
-                let amount = -1;
+                let amount = 1;
                 let reason = "[REACTION]".to_owned();
-                api.honor(to_user_id, by_user_id, amount, reason);
+                api.dishonor(to_user_id, by_user_id, amount, reason).await;
             }
         }
     }
@@ -162,38 +164,13 @@ impl EventHandler for Handler {
 
         let discord_constants = discord_constants_from_context(&ctx).await;
         discord_constants.tiananmen_channel.say(&ctx, format!("Online {}", discord_constants.mao_emoji)).await.unwrap();
-        tokio::spawn(background_loop());
+        //tokio::spawn(background_loop());
     }
-}
-
-async fn background_loop() {
-    loop {
-    }
-//    let mut _conn = redis.connection.lock().unwrap();
-    /*
-        println!("OK");
-        {
-            let mut conn = redis.connection.lock().unwrap();
-            let users: Vec<u8> = conn.get("syncbot:users").unwrap();
-            let users: String = String::from_utf8_lossy(&users).to_string();
-            let users: Vec<User> = serde_json::from_str(&users).unwrap();
-            println!("Desired user state: {:?}", users);
-        }
-        sleep(Duration::from_millis(10000)).await;
-    }
-    */
 }
 
 /*
-impl Redis {
-    fn new() -> Self {
-        let host = env::var("REDIS_HOST").unwrap().to_string();
-        let client = redis::Client::open(host.clone()).unwrap();
-        let connection = Arc::new(Mutex::new(client.get_connection().unwrap()));
-        Redis {
-            connection,
-        }
-    }
+async fn background_loop() {
+    loop { }
 }
 */
 
@@ -234,7 +211,7 @@ async fn main() {
 //    download_emoji(emoji_id).await;
 
     let token = env::var("DISCORD_TOKEN").unwrap();
-    let api = api::Api::new();
+    let api = api::Api::new().await;
 
     let mut client = Client::builder(&token)
         .event_handler(Handler)

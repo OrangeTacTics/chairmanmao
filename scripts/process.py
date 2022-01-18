@@ -3,9 +3,11 @@ import json
 from redis import Redis
 from splitstream import splitfile
 
+
 redis = Redis()
 
 profiles = {}
+
 
 def ProfileRegistered(event):
     user_id = event[b'user_id'].decode()
@@ -34,7 +36,6 @@ def ComradeJailed(event):
     reason = event[b'reason'].decode()
 
     profiles[to_user_id]['jailed'] = True
-
 
 
 def ComradeUnjailed(event):
