@@ -160,6 +160,7 @@ dependencies = [
  "bytes 1.1.0",
  "dotenv",
  "futures",
+ "hyper",
  "image",
  "mongodb",
  "rand 0.8.4",
