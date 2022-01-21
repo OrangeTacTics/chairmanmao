@@ -13,6 +13,7 @@ async fn connect_to_mongo() -> Database {
     db
 }
 
+#[derive(Clone)]
 pub struct Store {
     db: Database,
     profiles_collection: Collection<Profile>,
@@ -34,6 +35,7 @@ impl Store {
     }
 
     pub async fn register(&self, user_id: u64, discord_username: String) {
+        println!("OK");
         let display_name = discord_username.clone();
         let profile = Profile {
             user_id,
@@ -51,7 +53,8 @@ impl Store {
             defected: false,
         };
 
-        self.profiles_collection.insert_one(profile, None).await.unwrap();
+        let result = self.profiles_collection.insert_one(profile, None).await.unwrap();
+        println!("{:?}", &result);
     }
 
     pub async fn load_profile(&self, user_id: u64) -> Option<Profile> {
