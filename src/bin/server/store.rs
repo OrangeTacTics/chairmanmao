@@ -57,9 +57,9 @@ impl Store {
         self.profiles_collection.find_one(filter, None).await.unwrap()
     }
 
-    pub async fn store_profile(&mut self, user_id: u64, profile: &Profile) {
+    pub async fn store_profile(&mut self, profile: &Profile) {
         let filter = doc! {
-            "user_id": user_id as i64,
+            "user_id": profile.user_id as i64,
         };
         self.profiles_collection.replace_one(filter, profile, None).await.unwrap();
     }
@@ -67,17 +67,17 @@ impl Store {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
-    user_id: u64,
-    discord_username: String,
+    pub user_id: u64,
+    pub discord_username: String,
 
-    created: bson::DateTime,
-    last_seen: bson::DateTime,
+    pub created: bson::DateTime,
+    pub last_seen: bson::DateTime,
 
-    roles: Vec<String>,
-    display_name: String,
-    credit: usize,
-    yuan: usize,
-    hanzi: Vec<String>,
-    mined_words: Vec<String>,
-    defected: bool,
+    pub roles: Vec<String>,
+    pub display_name: String,
+    pub credit: usize,
+    pub yuan: usize,
+    pub hanzi: Vec<String>,
+    pub mined_words: Vec<String>,
+    pub defected: bool,
 }

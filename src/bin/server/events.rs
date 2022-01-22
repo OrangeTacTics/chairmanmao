@@ -64,10 +64,33 @@ impl Event {
             ("type".to_string(), self.type_name().to_string()),
         ];
         use Event::*;
-        match self {
-            ProfileRegistered { id: _, user_id: _, discord_username: _, } => (),
-            _ => (),
-        }
+        keys.extend_from_slice(&match self {
+            ProfileRegistered { id: _, user_id, discord_username } => vec![
+                ("user_id".to_string(), user_id.to_string()),
+                ("discord_username".to_string(), discord_username.to_string()),
+            ],
+            ComradeHonored { id: _, to_user_id, by_user_id, amount, reason } => vec![
+                ("to_user_id".to_string(), to_user_id.to_string()),
+                ("by_user_id".to_string(), by_user_id.to_string()),
+                ("amount".to_string(), amount.to_string()),
+                ("reason".to_string(), reason.to_string()),
+            ],
+            ComradeDishonored { id: _, to_user_id, by_user_id, amount, reason, } => vec![
+                ("to_user_id".to_string(), to_user_id.to_string()),
+                ("by_user_id".to_string(), by_user_id.to_string()),
+                ("amount".to_string(), amount.to_string()),
+                ("reason".to_string(), reason.to_string()),
+            ],
+            ComradeJailed { id: _, to_user_id, by_user_id, reason, } => vec![
+                ("to_user_id".to_string(), to_user_id.to_string()),
+                ("by_user_id".to_string(), by_user_id.to_string()),
+                ("reason".to_string(), reason.to_string()),
+            ],
+            ComradeUnjailed { id: _, to_user_id, by_user_id, } => vec![
+                ("to_user_id".to_string(), to_user_id.to_string()),
+                ("by_user_id".to_string(), by_user_id.to_string()),
+            ],
+        });
 
         keys
     }

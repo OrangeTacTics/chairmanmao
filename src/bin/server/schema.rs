@@ -39,6 +39,8 @@ impl QueryRoot {
         let id = Ulid::new().to_string();
         return Ok(GqlEvent {
             id,
+            success: true,
+            error: None,
         })
     }
 }
@@ -63,12 +65,80 @@ impl MutationRoot {
             discord_username: discord_username.clone(),
         };
 
+        let existing_profile = context.store.load_profile(user_id.parse().unwrap()).await;
+        if existing_profile.is_some() {
+            return Ok(GqlEvent {
+                success: false,
+                id: "".to_string(),
+                error: Some(format!("Profile with user_id already exists: {user_id}")),
+            });
+        }
+
         context.event_stream.append(&event).await;
         context.store.register(user_id.parse().unwrap(), discord_username).await;
         println!("Done");
 
         return Ok(GqlEvent {
+            success: true,
             id: id.to_string(),
+            error: None,
+        })
+    }
+
+    async fn honor(
+        to_user_id: String,
+        by_user_id: String,
+        amount: i32,
+        reason: String,
+        context: &RwLock<Context>,
+    ) -> FieldResult<GqlEvent> {
+        assert!(amount > 0, "Amount must be positive");
+        let id = Ulid::new();
+
+        let mut context = context.write().await;
+
+        println!("Honoring");
+        let event = Event::ComradeHonored {
+            id,
+            to_user_id: to_user_id.parse::<u64>().unwrap(),
+            by_user_id: by_user_id.parse::<u64>().unwrap(),
+            amount: amount as u64,
+            reason: reason.clone(),
+        };
+
+        let to_profile = context.store.load_profile(to_user_id.parse().unwrap()).await;
+        if to_profile.is_none() {
+            return Ok(GqlEvent {
+                success: false,
+                id: "".to_string(),
+                error: Some(format!("Not user exists with that toUserId: {}", &by_user_id)),
+            });
+        }
+
+        let by_profile = context.store.load_profile(by_user_id.parse().unwrap()).await;
+        if by_profile.is_none() {
+            return Ok(GqlEvent {
+                success: false,
+                id: "".to_string(),
+                error: Some(format!("Not user exists with that byUserId: {}", &by_user_id)),
+            });
+        }
+
+        let mut to_profile = to_profile.unwrap();
+
+        context.event_stream.append(&event).await;
+
+        to_profile.credit += amount as usize;
+        context.store.store_profile(&to_profile).await;
+
+        assert!(to_profile.user_id != by_profile.unwrap().user_id);
+
+        println!("Done");
+
+        return Ok(GqlEvent {
+            success: true,
+            id: id.to_string(),
+            error: None,
         })
     }
 }
@@ -76,6 +146,8 @@ impl MutationRoot {
 #[derive(GraphQLObject)]
 #[graphql(name = "Event")]
 pub struct GqlEvent {
+    success: bool,
+    error: Option<String>,
     id: String,
 }
 
