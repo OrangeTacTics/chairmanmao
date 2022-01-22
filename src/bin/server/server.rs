@@ -32,8 +32,8 @@ async fn main() {
                 let schema = schema.clone();
                 async {
                     let r = match (req.method(), req.uri().path()) {
-                        (&Method::GET, "/") => juniper_hyper::graphiql("/graphql", None).await,
-                        (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
+                        (&Method::GET, "/graphql") => juniper_hyper::graphiql("/graphql", None).await,
+                        (&Method::POST, "/graphql") => {
                             juniper_hyper::graphql(schema, context, req).await
                         }
                         _ => {

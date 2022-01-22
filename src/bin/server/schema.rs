@@ -135,6 +135,20 @@ impl MutationRoot {
 
         process_event(context, event).await
     }
+
+    async fn set_party(
+        user_id: String,
+        flag: bool,
+        context: &RwLock<Context>,
+    ) -> FieldResult<Command> {
+        let event = events::types::SetParty {
+            id: Ulid::new(),
+            user_id: user_id.parse::<u64>().unwrap(),
+            flag,
+        };
+
+        process_event(context, event).await
+    }
 }
 
 async fn process_event<E: Event>(context: &RwLock<Context>, event: E) -> FieldResult<Command> {

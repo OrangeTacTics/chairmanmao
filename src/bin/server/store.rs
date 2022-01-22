@@ -27,8 +27,22 @@ impl Store {
         }
     }
 
-    pub async fn register(&mut self, user_id: u64, discord_username: String) {
-        println!("OK");
+    pub async fn profile_count(&mut self) -> mongodb::error::Result<u64> {
+        self.profiles_collection.count_documents(None, None).await
+    }
+
+    pub async fn register(
+        &mut self,
+        user_id: u64,
+        discord_username: String,
+    ) -> mongodb::error::Result<Profile> {
+        let count = self.profile_count().await?;
+        let yuan = if count == 0 {
+            10000
+        } else {
+            0
+        };
+
         let display_name = discord_username.clone();
         let profile = Profile {
             user_id,
@@ -40,14 +54,14 @@ impl Store {
             roles: Vec::new(),
             display_name,
             credit: 1000,
-            yuan: 0,
+            yuan,
             hanzi: Vec::new(),
             mined_words: Vec::new(),
             defected: false,
         };
 
-        let result = self.profiles_collection.insert_one(profile, None).await.unwrap();
-        println!("{:?}", &result);
+        self.profiles_collection.insert_one(profile.clone(), None).await?;
+        Ok(profile)
     }
 
     pub async fn load_profile(&self, user_id: u64) -> Option<Profile> {
@@ -65,7 +79,7 @@ impl Store {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {
     pub user_id: u64,
     pub discord_username: String,
@@ -80,4 +94,31 @@ pub struct Profile {
     pub hanzi: Vec<String>,
     pub mined_words: Vec<String>,
     pub defected: bool,
+}
+
+impl Profile {
+    pub fn add_role(&mut self, role: &str) -> bool {
+        if !self.has_role(role) {
+            self.roles.push(role.to_string());
+            self.roles.sort();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn remove_role(&mut self, role: &str) -> bool {
+        if self.has_role(role) {
+            let index = self.roles.iter().position(|x| x == &role.to_string()).unwrap();
+            self.roles.remove(index);
+            true
+        } else {
+            false
+        }
+
+    }
+
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.contains(&role.to_string())
+    }
 }

@@ -69,7 +69,7 @@ pub mod types {
         }
 
         async fn exec(&self, store: &mut Store) -> Result<(), String> {
-            store.register(self.user_id, self.discord_username.clone()).await;
+            store.register(self.user_id, self.discord_username.clone()).await.unwrap();
             Ok(())
         }
 
@@ -79,6 +79,51 @@ pub mod types {
                 ("type".to_string(), self.type_name().to_string()),
                 ("user_id".to_string(), self.user_id.to_string()),
                 ("discord_username".to_string(), self.discord_username.to_string()),
+            ]
+        }
+    }
+
+    pub struct SetParty {
+         pub id: Ulid,
+         pub user_id: u64,
+         pub flag: bool,
+    }
+
+    #[async_trait]
+    impl Event for SetParty {
+        fn id(&self) -> Ulid {
+            self.id
+        }
+
+        fn type_name(&self) -> &'static str {
+            "SetParty"
+        }
+
+        async fn validate(&self, store: &Store) -> Result<(), String> {
+            let profile = store.load_profile(self.user_id).await;
+            if profile.is_none() {
+                return Err(format!("Not user exists with that id: {}", &self.user_id));
+            }
+            Ok(())
+        }
+
+        async fn exec(&self, store: &mut Store) -> Result<(), String> {
+            let mut profile = store.load_profile(self.user_id).await.unwrap();
+            if self.flag {
+                profile.add_role("Party");
+            } else {
+                profile.remove_role("Party");
+            }
+            store.store_profile(&profile).await;
+            Ok(())
+        }
+
+        fn to_map(&self) -> Vec<(String, String)> {
+            vec![
+                ("id".to_string(), self.id().to_string()),
+                ("type".to_string(), self.type_name().to_string()),
+                ("user_id".to_string(), self.user_id.to_string()),
+                ("flag".to_string(), self.flag.to_string()),
             ]
         }
     }
