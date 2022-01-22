@@ -45,6 +45,7 @@ hyper = { version = "0.14", features = ["full"] }
 pretty_env_logger = "0.4"
 juniper = "0.15.7"
 juniper_hyper = "0.8.0"
+async-trait = "0.1.52"
 
 
 [dependencies.serenity]

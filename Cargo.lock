@@ -199,6 +199,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 name = "chairmanmao"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bson 2.1.0",
  "bytes 1.1.0",
  "dotenv",

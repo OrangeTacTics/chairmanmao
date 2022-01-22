@@ -7,7 +7,7 @@ use juniper::GraphQLObject;
 use tokio::sync::RwLock;
 
 use crate::store::Store;
-use crate::events::{EventStream, Event};
+use crate::events::{self, EventStream, Event};
 
 
 pub struct Context {
@@ -61,25 +61,18 @@ impl MutationRoot {
 
         let mut context = context.write().await;
 
-        let event = Event::ProfileRegistered {
+        let event = events::types::ProfileRegistered {
             id,
             user_id: user_id.parse::<u64>().unwrap(),
             discord_username: discord_username.clone(),
         };
 
-        ////////////////
-        // Validating //
-        ////////////////
-        let existing_profile = context.store.load_profile(user_id.parse().unwrap()).await;
-        if existing_profile.is_some() {
-            return Command::failed(format!("Profile with user_id already exists: {user_id}"));
+        if let Err(msg) = event.validate(&context.store).await {
+            return Command::failed(msg);
         }
 
-        ////////////////
-        // Committing //
-        ////////////////
         context.event_stream.append(&event).await;
-        context.store.register(user_id.parse().unwrap(), discord_username).await;
+        event.exec(&mut context.store).await.unwrap();
 
         Command::succeeded(&event)
     }
@@ -95,7 +88,7 @@ impl MutationRoot {
 
         let mut context = context.write().await;
 
-        let event = Event::ComradeHonored {
+        let event = events::types::ComradeHonored {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
@@ -103,35 +96,12 @@ impl MutationRoot {
             reason: reason.clone(),
         };
 
-        ////////////////
-        // Validating //
-        ////////////////
-        if amount <= 0 {
-            return Command::failed("Amount must be positive".to_string());
+        if let Err(msg) = event.validate(&context.store).await {
+            return Command::failed(msg);
         }
 
-        let to_profile = context.store.load_profile(to_user_id.parse().unwrap()).await;
-        if to_profile.is_none() {
-            return Command::failed(format!("Not user exists with that toUserId: {}", &by_user_id));
-        }
-
-        let by_profile = context.store.load_profile(by_user_id.parse().unwrap()).await;
-        if by_profile.is_none() {
-            return Command::failed(format!("Not user exists with that byUserId: {}", &by_user_id));
-        }
-
-        let mut to_profile = to_profile.unwrap();
-
-        if to_profile.user_id == by_profile.unwrap().user_id {
-            return Command::failed("toUserId cannot be the same as fromUserId".to_string());
-        }
-
-        ////////////////
-        // Committing //
-        ////////////////
         context.event_stream.append(&event).await;
-        to_profile.credit += amount as usize;
-        context.store.store_profile(&to_profile).await;
+        event.exec(&mut context.store).await.unwrap();
 
         Command::succeeded(&event)
     }
@@ -147,7 +117,7 @@ impl MutationRoot {
 
         let mut context = context.write().await;
 
-        let event = Event::ComradeDishonored {
+        let event = events::types::ComradeDishonored {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
@@ -155,39 +125,12 @@ impl MutationRoot {
             reason: reason.clone(),
         };
 
-        ////////////////
-        // Validating //
-        ////////////////
-        if amount <= 0 {
-            return Command::failed("Amount must be positive".to_string());
+        if let Err(msg) = event.validate(&context.store).await {
+            return Command::failed(msg);
         }
 
-        let to_profile = context.store.load_profile(to_user_id.parse().unwrap()).await;
-        if to_profile.is_none() {
-            return Command::failed(format!("Not user exists with that toUserId: {}", &by_user_id));
-        }
-
-        let by_profile = context.store.load_profile(by_user_id.parse().unwrap()).await;
-        if by_profile.is_none() {
-            return Command::failed(format!("Not user exists with that byUserId: {}", &by_user_id));
-        }
-
-        let mut to_profile = to_profile.unwrap();
-
-        if to_profile.user_id == by_profile.unwrap().user_id {
-            return Command::failed("toUserId cannot be the same as fromUserId".to_string());
-        }
-
-        if to_profile.credit < amount as usize {
-            return Command::failed("User does not have enough remaining social credit".to_string());
-        }
-
-        ////////////////
-        // Committing //
-        ////////////////
         context.event_stream.append(&event).await;
-        to_profile.credit -= amount as usize;
-        context.store.store_profile(&to_profile).await;
+        event.exec(&mut context.store).await.unwrap();
 
         Command::succeeded(&event)
     }
@@ -202,7 +145,7 @@ impl MutationRoot {
 
         let mut context = context.write().await;
 
-        let event = Event::ComradeJailed {
+        let event = events::types::ComradeJailed {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
@@ -212,37 +155,15 @@ impl MutationRoot {
         ////////////////
         // Validating //
         ////////////////
-        let to_profile = context.store.load_profile(to_user_id.parse().unwrap()).await;
-        if to_profile.is_none() {
-            return Command::failed(format!("Not user exists with that toUserId: {}", &by_user_id));
+        if let Err(msg) = event.validate(&context.store).await {
+            return Command::failed(msg);
         }
-
-        let by_profile = context.store.load_profile(by_user_id.parse().unwrap()).await;
-        if by_profile.is_none() {
-            return Command::failed(format!("Not user exists with that byUserId: {}", &by_user_id));
-        }
-
-        let mut to_profile = to_profile.unwrap();
-
-        if to_profile.user_id == by_profile.unwrap().user_id {
-            return Command::failed("toUserId cannot be the same as fromUserId".to_string());
-        }
-
-        if to_profile.roles.contains(&"Jailed".to_string()) {
-            return Command::failed("User is already jailed".to_string());
-        }
-
-        // if !by_profile.is_party() {
-        //    return Command::failed("Jailer is not in the Party".to_string());
-        // }
 
         ////////////////
         // Committing //
         ////////////////
         context.event_stream.append(&event).await;
-        to_profile.roles.push("Jailed".to_string());
-        to_profile.roles.sort();
-        context.store.store_profile(&to_profile).await;
+        event.exec(&mut context.store).await.unwrap();
 
         Command::succeeded(&event)
     }
@@ -256,7 +177,7 @@ impl MutationRoot {
 
         let mut context = context.write().await;
 
-        let event = Event::ComradeUnjailed {
+        let event = events::types::ComradeUnjailed {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
@@ -265,37 +186,15 @@ impl MutationRoot {
         ////////////////
         // Validating //
         ////////////////
-        let to_profile = context.store.load_profile(to_user_id.parse().unwrap()).await;
-        if to_profile.is_none() {
-            return Command::failed(format!("Not user exists with that toUserId: {}", &by_user_id));
+        if let Err(msg) = event.validate(&context.store).await {
+            return Command::failed(msg);
         }
-
-        let by_profile = context.store.load_profile(by_user_id.parse().unwrap()).await;
-        if by_profile.is_none() {
-            return Command::failed(format!("Not user exists with that byUserId: {}", &by_user_id));
-        }
-
-        let mut to_profile = to_profile.unwrap();
-
-        if to_profile.user_id == by_profile.unwrap().user_id {
-            return Command::failed("toUserId cannot be the same as fromUserId".to_string());
-        }
-
-        if !to_profile.roles.contains(&"Jailed".to_string()) {
-            return Command::failed("User is not jailed".to_string());
-        }
-
-        // if !by_profile.is_party() {
-        //    return Command::failed("Jailer is not in the Party".to_string());
-        // }
 
         ////////////////
         // Committing //
         ////////////////
         context.event_stream.append(&event).await;
-        let index = to_profile.roles.iter().position(|x| x == &"Jailed").unwrap();
-        to_profile.roles.remove(index);
-        context.store.store_profile(&to_profile).await;
+        event.exec(&mut context.store).await.unwrap();
 
         Command::succeeded(&event)
     }
@@ -317,7 +216,7 @@ impl Command {
         })
     }
 
-    fn succeeded(event: &Event) -> FieldResult<Command> {
+    fn succeeded(event: &dyn Event) -> FieldResult<Command> {
         return Ok(Command {
             success: true,
             error: None,
