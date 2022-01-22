@@ -9,7 +9,6 @@ use hyper::{
 mod schema;
 use crate::schema::{create_schema, Schema};
 
-#[derive(Clone)]
 struct State {
     schema: std::sync::Arc<Schema>,
     context: schema::Context,
@@ -17,10 +16,11 @@ struct State {
 
 #[tokio::main]
 async fn main() {
+    dotenv::dotenv().ok();
     pretty_env_logger::init();
     let addr = ([0, 0, 0, 0], 8000).into();
 
-    let context = std::sync::Arc::new(schema::Context::new().await);
+    let context = std::sync::Arc::new(tokio::sync::RwLock::new(schema::Context::new().await));
     let schema = std::sync::Arc::new(create_schema());
 
     let new_service = make_service_fn(move |_| {
@@ -32,7 +32,7 @@ async fn main() {
                 let context = context.clone();
                 let schema = schema.clone();
                 async {
-                    Ok::<_, Infallible>(match (req.method(), req.uri().path()) {
+                    let r = match (req.method(), req.uri().path()) {
                         (&Method::GET, "/") => juniper_hyper::graphiql("/graphql", None).await,
                         (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
                             juniper_hyper::graphql(schema, context, req).await
@@ -42,7 +42,8 @@ async fn main() {
                             *response.status_mut() = StatusCode::NOT_FOUND;
                             response
                         }
-                    })
+                    };
+                    Ok::<_, Infallible>(r)
                 }
             }))
         }

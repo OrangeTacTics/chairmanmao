@@ -4,10 +4,11 @@ use ulid::Ulid;
 
 use juniper::GraphQLObject;
 
+use tokio::sync::RwLock;
+
 use chairmanmao::store::Store;
 
 
-#[derive(Clone)]
 pub struct Context {
     store: Store,
 }
@@ -25,9 +26,12 @@ impl Context {
 
 pub struct QueryRoot;
 
-#[juniper::graphql_object(context = Context)]
+#[juniper::graphql_object(context = RwLock<Context>)]
 impl QueryRoot {
-    fn ok() -> FieldResult<Event> {
+    async fn ok(
+        context: &RwLock<Context>,
+    ) -> FieldResult<Event> {
+        let _store = context.read().await;
         let id = Ulid::new().to_string();
         return Ok(Event {
             id,
@@ -37,19 +41,20 @@ impl QueryRoot {
 
 pub struct MutationRoot;
 
-#[juniper::graphql_object(context = Context)]
+#[juniper::graphql_object(context = RwLock<Context>)]
 impl MutationRoot {
     async fn register(
         user_id: String,
         discord_username: String,
-        context: &Context,
+        context: &RwLock<Context>,
     ) -> FieldResult<Event> {
         let id = Ulid::new().to_string();
+
+        let mut context = context.write().await;
 
         println!("Registering");
         context.store.register(user_id.parse().unwrap(), discord_username).await;
         println!("Done");
-
 
         return Ok(Event {
             id,
@@ -62,7 +67,7 @@ pub struct Event {
     id: String,
 }
 
-pub type Schema = RootNode<'static, QueryRoot, MutationRoot, EmptySubscription<Context>>;
+pub type Schema = RootNode<'static, QueryRoot, MutationRoot, EmptySubscription<RwLock<Context>>>;
 
 pub fn create_schema() -> Schema {
     Schema::new(
