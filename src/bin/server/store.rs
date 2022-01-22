@@ -1,7 +1,6 @@
 // This trait is required to use `try_next()` on the cursor
-use mongodb::{bson::doc, Collection, Database};
+use mongodb::{bson::doc, Database};
 use serde::{Serialize, Deserialize};
-use std::sync::{Arc, Mutex};
 
 async fn connect_to_mongo() -> Database {
     use mongodb::{Client, options::ClientOptions};
@@ -16,22 +15,15 @@ async fn connect_to_mongo() -> Database {
 
 pub struct Store {
     profiles_collection: mongodb::Collection<Profile>,
-    redis: redis::aio::Connection,
 }
 
 impl Store {
     pub async fn new() -> Store {
-        let host = std::env::var("REDIS_HOST").unwrap().to_string();
-        let client = redis::Client::open(host.clone()).unwrap();
-        // let connection = Arc::new(Mutex::new(client.get_async_connection().await.unwrap()));
-        let redis = client.get_async_connection().await.unwrap();
-
         let db: Database = connect_to_mongo().await;
         let profiles_collection = db.collection::<Profile>("Profiles");
 
         Store {
             profiles_collection,
-            redis,
         }
     }
 
