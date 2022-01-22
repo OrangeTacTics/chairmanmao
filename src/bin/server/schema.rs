@@ -59,22 +59,13 @@ impl MutationRoot {
     ) -> FieldResult<Command> {
         let id = Ulid::new();
 
-        let mut context = context.write().await;
-
         let event = events::types::ProfileRegistered {
             id,
             user_id: user_id.parse::<u64>().unwrap(),
             discord_username: discord_username.clone(),
         };
 
-        if let Err(msg) = event.validate(&context.store).await {
-            return Command::failed(msg);
-        }
-
-        context.event_stream.append(&event).await;
-        event.exec(&mut context.store).await.unwrap();
-
-        Command::succeeded(&event)
+        process_event(context, event).await
     }
 
     async fn honor(
@@ -85,9 +76,6 @@ impl MutationRoot {
         context: &RwLock<Context>,
     ) -> FieldResult<Command> {
         let id = Ulid::new();
-
-        let mut context = context.write().await;
-
         let event = events::types::ComradeHonored {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
@@ -95,15 +83,7 @@ impl MutationRoot {
             amount: amount as u64,
             reason: reason.clone(),
         };
-
-        if let Err(msg) = event.validate(&context.store).await {
-            return Command::failed(msg);
-        }
-
-        context.event_stream.append(&event).await;
-        event.exec(&mut context.store).await.unwrap();
-
-        Command::succeeded(&event)
+        process_event(context, event).await
     }
 
     async fn dishonor(
@@ -115,8 +95,6 @@ impl MutationRoot {
     ) -> FieldResult<Command> {
         let id = Ulid::new();
 
-        let mut context = context.write().await;
-
         let event = events::types::ComradeDishonored {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
@@ -124,15 +102,7 @@ impl MutationRoot {
             amount: amount as u64,
             reason: reason.clone(),
         };
-
-        if let Err(msg) = event.validate(&context.store).await {
-            return Command::failed(msg);
-        }
-
-        context.event_stream.append(&event).await;
-        event.exec(&mut context.store).await.unwrap();
-
-        Command::succeeded(&event)
+        process_event(context, event).await
     }
 
     async fn jail(
@@ -143,29 +113,13 @@ impl MutationRoot {
     ) -> FieldResult<Command> {
         let id = Ulid::new();
 
-        let mut context = context.write().await;
-
         let event = events::types::ComradeJailed {
             id,
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
             reason: reason.clone(),
         };
-
-        ////////////////
-        // Validating //
-        ////////////////
-        if let Err(msg) = event.validate(&context.store).await {
-            return Command::failed(msg);
-        }
-
-        ////////////////
-        // Committing //
-        ////////////////
-        context.event_stream.append(&event).await;
-        event.exec(&mut context.store).await.unwrap();
-
-        Command::succeeded(&event)
+        process_event(context, event).await
     }
 
     async fn unjail(
@@ -173,30 +127,26 @@ impl MutationRoot {
         by_user_id: String,
         context: &RwLock<Context>,
     ) -> FieldResult<Command> {
-        let id = Ulid::new();
-
-        let mut context = context.write().await;
-
         let event = events::types::ComradeUnjailed {
-            id,
+            id: Ulid::new(),
             to_user_id: to_user_id.parse::<u64>().unwrap(),
             by_user_id: by_user_id.parse::<u64>().unwrap(),
         };
 
-        ////////////////
-        // Validating //
-        ////////////////
-        if let Err(msg) = event.validate(&context.store).await {
-            return Command::failed(msg);
-        }
+        process_event(context, event).await
+    }
+}
 
-        ////////////////
-        // Committing //
-        ////////////////
-        context.event_stream.append(&event).await;
-        event.exec(&mut context.store).await.unwrap();
+async fn process_event<E: Event>(context: &RwLock<Context>, event: E) -> FieldResult<Command> {
+    let mut context = context.write().await;
 
-        Command::succeeded(&event)
+    match  event.validate(&context.store).await {
+        Err(msg) => Command::failed(msg),
+        Ok(()) => {
+            context.event_stream.append(&event).await;
+            event.exec(&mut context.store).await.unwrap();
+            Command::succeeded(&event)
+        },
     }
 }
 
