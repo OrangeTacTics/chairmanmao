@@ -58,6 +58,8 @@ impl Store {
             hanzi: Vec::new(),
             mined_words: Vec::new(),
             defected: false,
+
+            hsk: None,
         };
 
         self.profiles_collection.insert_one(profile.clone(), None).await?;
@@ -94,6 +96,8 @@ pub struct Profile {
     pub hanzi: Vec<String>,
     pub mined_words: Vec<String>,
     pub defected: bool,
+
+    pub hsk: Option<u64>,
 }
 
 impl Profile {
@@ -115,7 +119,6 @@ impl Profile {
         } else {
             false
         }
-
     }
 
     pub fn has_role(&self, role: &str) -> bool {

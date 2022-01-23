@@ -367,4 +367,50 @@ pub mod types {
             ]
         }
     }
+
+    pub struct SetHsk {
+         pub id: Ulid,
+         pub user_id: u64,
+         pub hsk: Option<u64>,
+    }
+
+    #[async_trait]
+    impl Event for SetHsk {
+        fn id(&self) -> Ulid {
+            self.id
+        }
+
+        fn type_name(&self) -> &'static str {
+            "SetHsk"
+        }
+
+        async fn validate(&self, store: &Store) -> Result<(), String> {
+            let profile = store.load_profile(self.user_id).await;
+            if profile.is_none() {
+                return Err(format!("Not user exists with that user id: {}", &self.user_id));
+            }
+
+            if self.hsk.unwrap_or(0) > 6 {
+                return Err(format!("Invalid HSK level: {}", self.hsk.unwrap_or(0)));
+            }
+
+            Ok(())
+        }
+
+        async fn exec(&self, store: &mut Store) -> Result<(), String> {
+            let mut profile = store.load_profile(self.user_id).await.unwrap();
+            profile.hsk = self.hsk;
+            store.store_profile(&profile).await;
+            Ok(())
+        }
+
+        fn to_map(&self) -> Vec<(String, String)> {
+            vec![
+               ("id".to_string(), self.id().to_string()),
+                ("type".to_string(), self.type_name().to_string()),
+                ("user_id".to_string(), self.user_id.to_string()),
+                ("hsk".to_string(), self.hsk.map(|h| h.to_string()).unwrap_or("null".to_string())),
+            ]
+        }
+    }
 }
