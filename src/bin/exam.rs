@@ -73,7 +73,7 @@ fn convert_exam(json_exam: &JsonExam) -> Exam {
 fn load_exam(exam_name: &str) -> Exam {
     let mut exams: HashMap<String, Exam> = HashMap::new();
 
-    let exam_json = std::fs::read_to_string("exams.json").unwrap();
+    let exam_json = std::fs::read_to_string("data/exams.json").unwrap();
     let exam_data: serde_json::Value = serde_json::from_str(&exam_json).unwrap();
     for exam in exam_data["data"]["exams"].as_array().unwrap().iter() {
         let json_exam: JsonExam = JsonExam::deserialize(exam).unwrap();
