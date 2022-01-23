@@ -40,7 +40,7 @@ rusttype = "0.9.2"
 image = "0.23.14"
 futures = "0.3.0"
 bson = "2.1.0"
-ulid = "0.5.0"
+ulid = { version = "0.5.0", features = ["serde"] }
 hyper = { version = "0.14", features = ["full"] }
 pretty_env_logger = "0.4"
 juniper = "0.15.7"

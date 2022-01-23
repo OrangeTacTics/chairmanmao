@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use juniper::FieldResult;
 use juniper::{EmptySubscription, RootNode};
 use ulid::Ulid;
+use serde::{Serialize};
 
 use juniper::GraphQLObject;
 
@@ -182,7 +183,7 @@ impl MutationRoot {
     }
 }
 
-async fn process_event<E: Event>(context: &RwLock<Context>, event: E) -> FieldResult<Command> {
+async fn process_event<E: Event + Serialize>(context: &RwLock<Context>, event: E) -> FieldResult<Command> {
     let mut context = context.write().await;
 
     match  event.validate(&context.store).await {

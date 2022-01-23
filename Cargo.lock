@@ -2378,6 +2378,7 @@ checksum = "220b18413e1fe5e85a5580b22f44241f82404a66c792c9f3c9eda74c52d9a22e"
 dependencies = [
  "chrono",
  "rand 0.8.4",
+ "serde",
 ]
 
 [[package]]

@@ -3,6 +3,7 @@ use ulid::Ulid;
 
 use crate::store::Store;
 use async_trait::async_trait;
+use serde::{Serialize};
 
 #[async_trait]
 pub trait Event {
@@ -33,8 +34,13 @@ impl EventStream {
         }
     }
 
-    pub async fn append<E: Event>(&mut self, event: &E) {
-        let () = self.redis.xadd("events", "*", &event.to_map()).await.unwrap();
+    pub async fn append<E: Event + Serialize>(&mut self, event: &E) {
+        let map = vec![
+            ("id".to_string(), event.id().to_string()),
+            ("type".to_string(), event.type_name().to_string()),
+            ("event".to_string(), serde_json::to_string(event).unwrap()),
+        ];
+        let () = self.redis.xadd("events", "*", &map).await.unwrap();
     }
 }
 
@@ -43,7 +49,9 @@ pub mod types {
     use super::Event;
     use crate::store::Store;
     use ulid::Ulid;
+    use serde::{Serialize, Deserialize};
 
+    #[derive(Serialize, Deserialize)]
     pub struct ProfileRegistered {
          pub id: Ulid,
          pub user_id: u64,
@@ -83,6 +91,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct SetParty {
          pub id: Ulid,
          pub user_id: u64,
@@ -128,6 +137,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct ComradeHonored {
          pub id: Ulid,
          pub to_user_id: u64,
@@ -186,6 +196,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct ComradeDishonored {
          pub id: Ulid,
          pub to_user_id: u64,
@@ -244,6 +255,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct ComradeJailed {
          pub id: Ulid,
          pub to_user_id: u64,
@@ -307,6 +319,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct ComradeUnjailed {
          pub id: Ulid,
          pub to_user_id: u64,
@@ -368,6 +381,7 @@ pub mod types {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
     pub struct SetHsk {
          pub id: Ulid,
          pub user_id: u64,
