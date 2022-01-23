@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "chairmanmao"
-path = "src/bin/chairmanmao.rs"
+path = "src/bin/chairmanmao/chairmanmao.rs"
 
 [[bin]]
 name = "draw"

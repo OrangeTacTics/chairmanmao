@@ -92,7 +92,6 @@ fn find_channel(channels: &[GuildChannel], name: &str) -> GuildChannel {
 
 fn find_role(roles: &HashMap<RoleId, Role>, name: &str) -> Role {
     for role in roles.values() {
-        println!("{:?} vs {:?}", role.name, name);
         if role.name.contains(name) {
             return role.clone();
         }
